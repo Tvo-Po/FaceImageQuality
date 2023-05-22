@@ -17,6 +17,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 """
+from pathlib import Path
+
 # Installed modules imports
 import numpy as np
 import mxnet as mx
@@ -29,6 +31,16 @@ from sklearn.metrics.pairwise import euclidean_distances
 # Insightface imports
 from insightface.src import mtcnn_detector
 from insightface.src import face_preprocess
+
+
+PACKAGE_PATH = Path(__file__).parent.parent
+
+
+if not (PACKAGE_PATH / 'insightface/model/insightface-0000.params').exists():
+    with open(PACKAGE_PATH / 'insightface/model/insightface-0000.params', 'wb') as params:
+        for chunk in (PACKAGE_PATH / 'insightface/model/params-chunks').iterdir():
+            with open(chunk, 'rb') as f:
+                params.write(f.read())
 
 
 class SER_FIQ:
@@ -59,13 +71,13 @@ class SER_FIQ:
             self.device = mx.cpu()
         else:
             self.device = mx.gpu(gpu)
-
+        
         self.insightface = gluon.nn.SymbolBlock.imports(
-                                    "./insightface/model/insightface-symbol.json",
-                                    ['data'],
-                                    "./insightface/model/insightface-0000.params", 
-                                    ctx=self.device
-                           )
+            (PACKAGE_PATH / "insightface/model/insightface-symbol.json").as_posix(),
+            ['data'],
+            (PACKAGE_PATH / "insightface/model/insightface-0000.params").as_posix(), 
+            ctx=self.device
+        )
 
         
         self.det_minsize = 50
@@ -76,12 +88,13 @@ class SER_FIQ:
         
         thrs = self.det_threshold if det==0 else [0.0,0.0,0.2]
         
-        self.detector = mtcnn_detector.MtcnnDetector(model_folder="./insightface/mtcnn-model/", 
-                                                    ctx=self.device, 
-                                                    num_worker=1, 
-                                                    accurate_landmark = True, 
-                                                    threshold=thrs
-                                                    )
+        self.detector = mtcnn_detector.MtcnnDetector(
+            model_folder=(PACKAGE_PATH / "insightface/mtcnn-model").as_posix(), 
+            ctx=self.device, 
+            num_worker=1, 
+            accurate_landmark = True, 
+            threshold=thrs
+        )
         
     def apply_mtcnn(self, face_image : np.ndarray):
         """
